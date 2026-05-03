@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORC Time Corrector — BAMAK</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #f0f4f8;
+    --deep: #ffffff;
+    --panel: #ffffff;
+    --border: #cbd5e1;
+    --accent: #0052a3;
+    --accent2: #e05c1a;
+    --win: #16a34a;
+    --lose: #dc2626;
+    --text: #0f172a;
+    --muted: #64748b;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --display: 'Bebas Neue', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,82,163,0.05) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(148,163,184,0.2) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(148,163,184,0.2) 40px);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    border-bottom: 3px solid var(--accent);
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    position: sticky; top: 0; z-index: 10;
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-size: 2.2rem;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    line-height: 1;
+  }
+
+  .logo span {
+    color: var(--accent2);
+  }
+
+  .subtitle {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.4rem 1.6rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  /* Race type toggle */
+  .toggle-group {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    width: fit-content;
+  }
+
+  .toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .toggle-btn.active {
+    background: var(--accent);
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .toggle-btn:not(.active):hover {
+    color: var(--text);
+    background: #e2e8f0;
+  }
+
+  /* Wind level */
+  .wind-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.8rem;
+  }
+
+  .wind-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .wind-btn.active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(255,107,53,0.08);
+  }
+
+  .wind-btn:not(.active):hover {
+    border-color: var(--text);
+    color: var(--text);
+  }
+
+  /* Grid layout for inputs */
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  @media (max-width: 600px) {
+    .input-grid { grid-template-columns: 1fr; }
+  }
+
+  .input-block label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+
+  .boat-select {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.8rem center;
+  }
+
+  .boat-select:focus { border-color: var(--accent); }
+
+  .time-input-wrap {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+  }
+
+  .time-field {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 1rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .time-field:focus { border-color: var(--accent); }
+  .time-field::placeholder { color: var(--muted); font-size: 0.85rem; }
+
+  .tcf-display {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+    min-height: 1rem;
+  }
+
+  .tcf-val { color: var(--accent2); }
+
+  /* Calculate button */
+  .calc-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    font-family: var(--display);
+    font-size: 1.3rem;
+    letter-spacing: 0.12em;
+    padding: 0.85rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+    margin-top: 0.5rem;
+  }
+
+  .calc-btn:hover { background: #003d7a; transform: translateY(-1px); }
+  .calc-btn:active { transform: translateY(0); }
+
+  /* Results */
+  #results {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 500px) {
+    .result-grid { grid-template-columns: 1fr; }
+  }
+
+  .result-card {
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1rem 1.2rem;
+    position: relative;
+  }
+
+  .result-card.winner {
+    border-color: var(--win);
+    background: rgba(34,197,94,0.05);
+  }
+
+  .result-card.loser {
+    border-color: var(--lose);
+    background: rgba(239,68,68,0.04);
+  }
+
+  .result-boat-name {
+    font-family: var(--display);
+    font-size: 1.5rem;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    margin-bottom: 0.2rem;
+  }
+
+  .result-card.winner .result-boat-name { color: var(--win); }
+  .result-card.loser .result-boat-name { color: var(--lose); }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .result-row .val {
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .winner-badge {
+    position: absolute;
+    top: -1px; right: -1px;
+    background: var(--win);
+    color: var(--navy);
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0 3px 0 3px;
+    text-transform: uppercase;
+  }
+
+  .margin-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1rem 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .margin-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .margin-value {
+    font-family: var(--display);
+    font-size: 2rem;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+  }
+
+  .margin-boat {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .margin-boat strong { color: var(--win); }
+
+  /* Manual TCF input */
+  .manual-tcf-wrap {
+    display: none;
+    margin-top: 0.5rem;
+  }
+
+  .manual-tcf-wrap.show { display: block; }
+
+  .manual-input {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .manual-input:focus { border-color: var(--accent); }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.5rem 0;
+  }
+
+  .scoring-info {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-top: 0.8rem;
+  }
+
+  .scoring-info span { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">BAM<span>AK</span> ORC</div>
+    <div class="subtitle">Time Corrector · ESP-10206 · 2026</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Race Type -->
+  <div class="card">
+    <div class="section-label">Race Type</div>
+    <div class="toggle-group">
+      <button class="toggle-btn active" onclick="setRaceType('coastal')">Coastal</button>
+      <button class="toggle-btn" onclick="setRaceType('wl')">Windward / Leeward</button>
+    </div>
+
+    <div class="wind-group" id="windGroup">
+      <button class="wind-btn active" onclick="setWind('low')">Low</button>
+      <button class="wind-btn" onclick="setWind('medium')">Medium</button>
+      <button class="wind-btn" onclick="setWind('high')">High</button>
+    </div>
+
+    <div class="scoring-info" id="scoringInfo"></div>
+  </div>
+
+  <!-- Boats -->
+  <div class="card">
+    <div class="section-label">Boats</div>
+    <div class="input-grid">
+
+      <!-- BAMAK (always fixed) -->
+      <div class="input-block">
+        <label>Your Boat</label>
+        <div class="time-field" style="background:rgba(0,82,163,0.06); border-color:rgba(0,82,163,0.3); color:var(--accent); font-weight:600; padding:0.55rem 0.8rem; display:flex; align-items:center;">BAMAK · ESP-10206</div>
+        <div class="tcf-display">TCF: <span class="tcf-val" id="bamakTcf">—</span> &nbsp;|&nbsp; ToD: <span class="tcf-val" id="bamakTod">—</span></div>
+      </div>
+
+      <!-- Opponent -->
+      <div class="input-block">
+        <label>Opponent</label>
+        <select class="boat-select" id="opponentSelect" onchange="onOpponentChange()">
+          <option value="">— Select opponent —</option>
+          <option value="TIRO">TIRO · POR 7744 · Grand Soleil 44</option>
+          <option value="PARAGON_R">PARAGON R · POR 6746 · Rodman 42 Mod</option>
+          <option value="VICKY">VICKY · ESP 8377 · Vrolijk 37</option>
+          <option value="SUPER_ACOR">SUPER AÇOR XIS · POR 14 · X-41</option>
+          <option value="WINE_DECK">WINE DECK · Nautor Swan</option>
+          <option value="EAGLE_III">EAGLE III</option>
+          <option value="FUNBEL">FUNBEL</option>
+          <option value="WHOS_NEXT">WHO'S NEXT · ESP 6966 · Comet 41S Mod</option>
+          <option value="XEQMATT">XEQMATT (manual TCF)</option>
+          <option value="MANUAL">Other (manual TCF)</option>
+        </select>
+        <div class="manual-tcf-wrap" id="manualTcfWrap">
+          <input class="manual-input" type="number" id="manualTcfInput" step="0.0001" placeholder="Enter TCF (e.g. 0.9615)" oninput="updateDisplay()">
+        </div>
+        <div class="tcf-display">TCF: <span class="tcf-val" id="oppTcf">—</span> &nbsp;|&nbsp; ToD: <span class="tcf-val" id="oppTod">—</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Times -->
+  <div class="card">
+    <div class="section-label">Elapsed Times</div>
+    <div class="input-grid">
+      <div class="input-block">
+        <label>BAMAK Elapsed (HH:MM:SS)</label>
+        <input class="time-field" id="bamakTime" type="text" placeholder="02:00:51" maxlength="8" oninput="formatTime(this)">
+      </div>
+      <div class="input-block">
+        <label>Opponent Elapsed (HH:MM:SS)</label>
+        <input class="time-field" id="oppTime" type="text" placeholder="01:52:12" maxlength="8" oninput="formatTime(this)">
+      </div>
+    </div>
+    <button class="calc-btn" onclick="calculate()">CALCULATE CORRECTED TIMES</button>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="card" style="padding:1.2rem 1.6rem;">
+      <div class="section-label">Results</div>
+      <div class="result-grid">
+        <div class="result-card" id="card1">
+          <div class="result-boat-name" id="r1name">—</div>
+          <div class="result-row"><span>Elapsed</span><span class="val" id="r1elapsed">—</span></div>
+          <div class="result-row"><span>TCF</span><span class="val" id="r1tcf">—</span></div>
+          <div class="result-row"><span>Corrected</span><span class="val" id="r1corrected">—</span></div>
+        </div>
+        <div class="result-card" id="card2">
+          <div class="result-boat-name" id="r2name">—</div>
+          <div class="result-row"><span>Elapsed</span><span class="val" id="r2elapsed">—</span></div>
+          <div class="result-row"><span>TCF</span><span class="val" id="r2tcf">—</span></div>
+          <div class="result-row"><span>Corrected</span><span class="val" id="r2corrected">—</span></div>
+        </div>
+      </div>
+      <div class="margin-bar">
+        <div>
+          <div class="margin-label">Corrected Margin</div>
+          <div class="margin-boat"><strong id="winnerName">—</strong> wins by</div>
+        </div>
+        <div class="margin-value" id="marginVal">—</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─── Certificate Data ───────────────────────────────────────────────────────
+// Structure: boat -> { coastal: {low,med,high}, wl: {low,med,high}, tod_coastal: {low,med,high}, tod_wl: {low,med,high} }
+const BOATS = {
+  BAMAK: {
+    label: 'BAMAK',
+    coastal: { low: 0.8860, med: 1.1443, high: 1.2809 },
+    wl:      { low: 0.6886, med: 0.9320, high: 1.0717 },
+    tod_coastal: { low: 677.2, med: 524.3, high: 468.4 },
+    tod_wl:      { low: 871.3, med: 643.8, high: 559.9 },
+  },
+  TIRO: {
+    label: 'TIRO',
+    coastal: { low: 0.9615, med: 1.2267, high: 1.3591 },
+    wl:      { low: 0.7453, med: 0.9927, high: 1.1158 },
+    tod_coastal: { low: 624.0, med: 489.1, high: 441.5 },
+    tod_wl:      { low: 805.0, med: 604.4, high: 537.7 },
+  },
+  PARAGON_R: {
+    label: 'PARAGON R',
+    coastal: { low: 0.8826, med: 1.1485, high: 1.2836 },
+    wl:      { low: 0.6846, med: 0.9352, high: 1.0736 },
+    tod_coastal: { low: 679.8, med: 522.4, high: 467.4 },
+    tod_wl:      { low: 876.4, med: 641.6, high: 558.9 },
+  },
+  VICKY: {
+    label: 'VICKY',
+    coastal: { low: 0.8609, med: 1.1105, high: 1.2352 },
+    wl:      { low: 0.6700, med: 0.9079, high: 1.0356 },
+    tod_coastal: { low: 696.9, med: 540.3, high: 485.8 },
+    tod_wl:      { low: 895.5, med: 660.9, high: 579.4 },
+  },
+  SUPER_ACOR: {
+    label: 'SUPER AÇOR XIS',
+    coastal: { low: 0.9313, med: 1.1859, high: 1.3175 },
+    wl:      { low: 0.7248, med: 0.9701, high: 1.1052 },
+    tod_coastal: { low: 644.3, med: 505.9, high: 455.4 },
+    tod_wl:      { low: 827.8, med: 618.5, high: 542.9 },
+  },
+  WINE_DECK: {
+    label: 'WINE DECK',
+    coastal: { low: 0.8240, med: 1.0739, high: 1.2034 },
+    wl:      { low: 0.6401, med: 0.8781, high: 1.0119 },
+    tod_coastal: { low: 728.2, med: 558.7, high: 498.6 },
+    tod_wl:      { low: 937.4, med: 683.3, high: 592.9 },
+  },
+  EAGLE_III: {
+    label: 'EAGLE III',
+    coastal: { low: 0.9982, med: 1.2592, high: 1.4063 },
+    wl:      { low: 0.7786, med: 1.0313, high: 1.1657 },
+    tod_coastal: { low: 601.1, med: 476.5, high: 426.7 },
+    tod_wl:      { low: 770.6, med: 581.8, high: 514.7 },
+  },
+  FUNBEL: {
+    label: 'FUNBEL',
+    coastal: { low: 0.9149, med: 1.1963, high: 1.3405 },
+    wl:      { low: 0.7056, med: 0.9682, high: 1.1200 },
+    tod_coastal: { low: 655.8, med: 501.5, high: 447.6 },
+    tod_wl:      { low: 850.3, med: 619.7, high: 535.7 },
+  },
+  WHOS_NEXT: {
+    label: "WHO'S NEXT",
+    coastal: { low: 0.9018, med: 1.1682, high: 1.3092 },
+    wl:      { low: 0.6998, med: 0.9516, high: 1.0926 },
+    tod_coastal: { low: 665.3, med: 513.6, high: 458.3 },
+    tod_wl:      { low: 857.4, med: 630.5, high: 549.1 },
+  },
+};
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let raceType = 'coastal';
+let windLevel = 'low';
+
+// ─── UI helpers ──────────────────────────────────────────────────────────────
+function setRaceType(t) {
+  raceType = t;
+  document.querySelectorAll('.toggle-btn').forEach((b,i) => {
+    b.classList.toggle('active', (i===0 && t==='coastal') || (i===1 && t==='wl'));
+  });
+  updateDisplay();
+}
+
+function setWind(w) {
+  windLevel = w;
+  document.querySelectorAll('.wind-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === w);
+  });
+  updateDisplay();
+}
+
+function windKey() {
+  return windLevel === 'medium' ? 'med' : windLevel;
+}
+
+function getTcf(boatKey) {
+  const b = BOATS[boatKey];
+  if (!b) return null;
+  const v = raceType === 'coastal' ? b.coastal[windKey()] : b.wl[windKey()];
+  return (v !== undefined && v !== null) ? v : null;
+}
+
+function getTod(boatKey) {
+  const b = BOATS[boatKey];
+  if (!b) return null;
+  const v = raceType === 'coastal' ? b.tod_coastal[windKey()] : b.tod_wl[windKey()];
+  return (v !== undefined && v !== null) ? v : null;
+}
+
+function onOpponentChange() {
+  const sel = document.getElementById('opponentSelect').value;
+  const manualWrap = document.getElementById('manualTcfWrap');
+  manualWrap.classList.toggle('show', sel === 'MANUAL' || sel === 'XEQMATT');
+  updateDisplay();
+  document.getElementById('results').style.display = 'none';
+}
+
+function updateDisplay() {
+  // BAMAK
+  const bamakTcf = getTcf('BAMAK');
+  const bamakTod = getTod('BAMAK');
+  document.getElementById('bamakTcf').textContent = bamakTcf !== null ? bamakTcf.toFixed(4) : '—';
+  document.getElementById('bamakTod').textContent = bamakTod !== null ? bamakTod.toFixed(1) : '—';
+
+  // Opponent
+  const sel = document.getElementById('opponentSelect').value;
+  let oppTcf = null, oppTod = null;
+
+  if (sel === 'MANUAL' || sel === 'XEQMATT') {
+    const v = parseFloat(document.getElementById('manualTcfInput').value);
+    if (!isNaN(v)) oppTcf = v;
+  } else if (sel && BOATS[sel]) {
+    oppTcf = getTcf(sel);
+    oppTod = getTod(sel);
+  }
+
+  document.getElementById('oppTcf').textContent = oppTcf !== null ? oppTcf.toFixed(4) : '—';
+  document.getElementById('oppTod').textContent = oppTod !== null ? oppTod.toFixed(1) : '—';
+
+  // Scoring info
+  const raceLabel = raceType === 'coastal' ? 'Coastal/Long Distance' : 'Windward/Leeward';
+  const windLabel = windLevel.charAt(0).toUpperCase() + windLevel.slice(1);
+  document.getElementById('scoringInfo').innerHTML =
+    `Scoring: <span>ORC Triple Number · ${raceLabel} · ${windLabel}</span> &nbsp;|&nbsp; Formula: CT = ET × TCF`;
+}
+
+// ─── Time parsing / formatting ────────────────────────────────────────────────
+function formatTime(el) {
+  let v = el.value.replace(/[^0-9]/g, '');
+  if (v.length > 6) v = v.slice(0, 6);
+  let out = '';
+  if (v.length <= 2) out = v;
+  else if (v.length <= 4) out = v.slice(0,2) + ':' + v.slice(2);
+  else out = v.slice(0,2) + ':' + v.slice(2,4) + ':' + v.slice(4);
+  el.value = out;
+}
+
+function parseTime(str) {
+  const parts = str.trim().split(':').map(Number);
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  return NaN;
+}
+
+function fmtSeconds(s) {
+  s = Math.round(s);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function fmtMargin(s) {
+  s = Math.abs(Math.round(s));
+  const m = Math.floor(s/60);
+  const sec = s%60;
+  if (m > 0) return `${m}m ${String(sec).padStart(2,'0')}s`;
+  return `${sec}s`;
+}
+
+// ─── Calculate ────────────────────────────────────────────────────────────────
+function calculate() {
+  const bamakTimeStr = document.getElementById('bamakTime').value;
+  const oppTimeStr   = document.getElementById('oppTime').value;
+  const sel          = document.getElementById('opponentSelect').value;
+
+  if (!bamakTimeStr || !oppTimeStr) { alert('Enter both elapsed times.'); return; }
+  if (!sel) { alert('Select an opponent.'); return; }
+
+  const bamakET = parseTime(bamakTimeStr);
+  const oppET   = parseTime(oppTimeStr);
+  if (isNaN(bamakET) || isNaN(oppET)) { alert('Invalid time format. Use HH:MM:SS.'); return; }
+
+  const bamakTcf = getTcf('BAMAK');
+
+  let oppTcf = null;
+  let oppLabel = sel;
+  if (sel === 'MANUAL' || sel === 'XEQMATT') {
+    oppTcf = parseFloat(document.getElementById('manualTcfInput').value);
+    oppLabel = sel === 'XEQMATT' ? 'XEQMATT' : 'OPPONENT';
+  } else if (BOATS[sel]) {
+    oppTcf = getTcf(sel);
+    oppLabel = BOATS[sel].label;
+  }
+
+  if (oppTcf === null || isNaN(oppTcf)) { alert('No TCF available for this boat/scoring combination. Try a different wind level or enter manually.'); return; }
+
+  const bamakCT = bamakET * bamakTcf;
+  const oppCT   = oppET   * oppTcf;
+  const margin  = bamakCT - oppCT;
+  const bamakWins = margin < 0;
+
+  // Populate cards
+  const c1 = document.getElementById('card1');
+  const c2 = document.getElementById('card2');
+
+  c1.className = 'result-card ' + (bamakWins ? 'winner' : 'loser');
+  c2.className = 'result-card ' + (!bamakWins ? 'winner' : 'loser');
+
+  c1.innerHTML = `
+    ${bamakWins ? '<div class="winner-badge">Winner</div>' : ''}
+    <div class="result-boat-name">BAMAK</div>
+    <div class="result-row"><span>Elapsed</span><span class="val">${fmtSeconds(bamakET)}</span></div>
+    <div class="result-row"><span>TCF</span><span class="val">${bamakTcf.toFixed(4)}</span></div>
+    <div class="result-row"><span>Corrected</span><span class="val">${fmtSeconds(bamakCT)}</span></div>
+  `;
+  c2.innerHTML = `
+    ${!bamakWins ? '<div class="winner-badge">Winner</div>' : ''}
+    <div class="result-boat-name">${oppLabel}</div>
+    <div class="result-row"><span>Elapsed</span><span class="val">${fmtSeconds(oppET)}</span></div>
+    <div class="result-row"><span>TCF</span><span class="val">${oppTcf.toFixed(4)}</span></div>
+    <div class="result-row"><span>Corrected</span><span class="val">${fmtSeconds(oppCT)}</span></div>
+  `;
+
+  document.getElementById('winnerName').textContent = bamakWins ? 'BAMAK' : oppLabel;
+  document.getElementById('marginVal').textContent = fmtMargin(margin);
+
+  const resultsEl = document.getElementById('results');
+  resultsEl.style.display = 'block';
+  resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Init
+updateDisplay();
+</script>
+</body>
+</html>
